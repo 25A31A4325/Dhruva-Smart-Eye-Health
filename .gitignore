@@ -12,6 +12,9 @@
 
 # Firebase & GCP Secret Credentials
 serviceAccountKey.json
+*serviceAccount*.json
+*service_account*.json
+*adminsdk*.json
 *firebase*.json
 *credential*.json
 *secret*.json
