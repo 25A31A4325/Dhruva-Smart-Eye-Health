@@ -1,0 +1,42 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#F8FAFC] text-[#1E293B] antialiased;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+}
+
+/* Custom subtle scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* 20-20-20 gentle breathing circle animation */
+@keyframes eye-breathe {
+  0%, 100% {
+    transform: scale(0.92);
+    box-shadow: 0 0 20px 0 rgba(2, 132, 199, 0.2);
+  }
+  50% {
+    transform: scale(1.08);
+    box-shadow: 0 0 45px 12px rgba(2, 132, 199, 0.4);
+  }
+}
+
+.animate-breathe {
+  animation: eye-breathe 4s ease-in-out infinite;
+}

@@ -1,0 +1,54 @@
+# ===================================================================
+# Git Ignore Configuration for Dhruva Project (Frontend + Backend)
+# ===================================================================
+
+# Environment Variable & Secret Files (NEVER COMMIT CREDENTIALS)
+.env
+.env.*
+!.env.example
+*.env
+*.env.local
+*.env.production
+
+# Firebase & GCP Secret Credentials
+serviceAccountKey.json
+*firebase*.json
+*credential*.json
+*secret*.json
+*.pem
+*.key
+
+# Python Artifacts & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/
+
+# Python Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+
+# Node.js & Frontend Dependencies
+node_modules/
+frontend/dist/
+frontend/dist-ssr/
+*.local
+
+# Editor & OS Artifacts
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Task logs & temporary scratch
+*.log
