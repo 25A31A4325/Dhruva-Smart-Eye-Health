@@ -15,29 +15,65 @@ import { tipsAPI } from '../services/api';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 
+const FALLBACK_TIPS = [
+  {
+    id: "tip_202020",
+    category: "BREAKS",
+    title: "Master the Clinical 20-20-20 Rule",
+    summary: "Every 20 minutes of continuous screen work, shift your focal gaze to an object at least 20 feet away for 20 seconds.",
+    actionable_step: "Set your Dhruva timer to 20 minutes. When prompted, gaze out a window or down a long hallway without squinting.",
+    scientific_rationale: "Relaxes the ciliary muscles responsible for lens accommodation, relieving ocular accommodative spasm."
+  },
+  {
+    id: "tip_distance",
+    category: "DISTANCE",
+    title: "Maintain the 50-70 cm Arm's Length Zone",
+    summary: "Keep your laptop or monitor at least an arm's length away to minimize ciliary accommodation demands.",
+    actionable_step: "Extend your arm forward with fingertips reaching the screen. The monitor should sit right at your knuckles or fingertips.",
+    scientific_rationale: "Viewing closer than 40 cm drastically increases convergence strain and muscular fatigue."
+  },
+  {
+    id: "tip_blinking",
+    category: "HABITS",
+    title: "Perform Conscious Complete Blinks",
+    summary: "Spontaneous blink rate plummets by up to 66% during digital tasks, causing accelerated tear evaporation.",
+    actionable_step: "During each break, perform 5 slow, deliberate complete blinks, pausing for 1 second with eyes gently closed.",
+    scientific_rationale: "Complete blinks trigger the meibomian glands to secrete the protective lipid layer of the tear film."
+  },
+  {
+    id: "tip_lighting",
+    category: "LIGHTING",
+    title: "Balance Ambient Illumination and Glare",
+    summary: "Harsh backlight or dark room contrast forces excessive pupillary fluctuations, worsening digital fatigue.",
+    actionable_step: "Position your desk perpendicular to windows and avoid overhead bulbs directly behind or in front of screens.",
+    scientific_rationale: "Even illumination avoids high luminance contrast ratios that induce glare disability."
+  }
+];
+
 export const TipsPage = () => {
-  const [tips, setTips] = useState([]);
-  const [dailyTip, setDailyTip] = useState(null);
-  const [categories, setCategories] = useState([]);
+  const [tips, setTips] = useState(FALLBACK_TIPS);
+  const [dailyTip, setDailyTip] = useState(FALLBACK_TIPS[0]);
+  const [categories, setCategories] = useState(['ALL', 'BREAKS', 'DISTANCE', 'HABITS', 'LIGHTING']);
   const [activeCategory, setActiveCategory] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState('');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const fetchTips = async () => {
-      setLoading(true);
       try {
         const [allRes, dailyRes] = await Promise.all([
-          tipsAPI.getAll(),
-          tipsAPI.getDaily(),
+          tipsAPI.getAll().catch(() => null),
+          tipsAPI.getDaily().catch(() => null),
         ]);
-        setTips(allRes.data.tips || []);
-        setCategories(['ALL', ...(allRes.data.categories || [])]);
-        setDailyTip(dailyRes.data.tip);
+        if (allRes?.data?.tips?.length) {
+          setTips(allRes.data.tips);
+          setCategories(['ALL', ...(allRes.data.categories || [])]);
+        }
+        if (dailyRes?.data?.tip) {
+          setDailyTip(dailyRes.data.tip);
+        }
       } catch (err) {
-        console.error('Failed to load tips:', err);
-      } finally {
-        setLoading(false);
+        console.warn('Tips loading fallback active:', err);
       }
     };
 

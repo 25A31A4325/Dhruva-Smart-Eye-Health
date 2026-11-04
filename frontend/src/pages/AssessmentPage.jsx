@@ -14,28 +14,102 @@ import { assessmentAPI } from '../services/api';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 
+const FALLBACK_QUESTIONS = [
+  {
+    id: "q1_dryness",
+    question_text: "How frequently do you experience eye dryness, burning, or a gritty feeling during screen work?",
+    options: [
+      { text: "Never or rarely", score: 0 },
+      { text: "Occasionally (1-2 times a week)", score: 1 },
+      { text: "Frequently (most days after screen use)", score: 2 },
+      { text: "Constantly throughout every session", score: 3 },
+    ],
+  },
+  {
+    id: "q2_blur",
+    question_text: "Do you experience transient blurred vision or difficulty refocusing on distant objects after screen time?",
+    options: [
+      { text: "Never", score: 0 },
+      { text: "Only after prolonged sessions (>4 hours)", score: 1 },
+      { text: "Frequently after normal work sessions", score: 2 },
+      { text: "Severe blurriness persisting after work", score: 3 },
+    ],
+  },
+  {
+    id: "q3_headaches",
+    question_text: "How often do you develop frontal headaches around the brow or temples after computer work?",
+    options: [
+      { text: "Never or very rarely", score: 0 },
+      { text: "Once every couple of weeks", score: 1 },
+      { text: "Multiple times a week", score: 2 },
+      { text: "Daily after screen exposure", score: 3 },
+    ],
+  },
+  {
+    id: "q4_neck_shoulder",
+    question_text: "Do you notice neck, shoulder, or upper back stiffness while viewing your display?",
+    options: [
+      { text: "No discomfort", score: 0 },
+      { text: "Mild stiffness relieved by stretching", score: 1 },
+      { text: "Moderate persistent tension", score: 2 },
+      { text: "Severe soreness altering my posture", score: 3 },
+    ],
+  },
+  {
+    id: "q5_glare_sensitivity",
+    question_text: "How sensitive are your eyes to screen brightness or ambient room lighting contrast?",
+    options: [
+      { text: "Normal comfort level", score: 0 },
+      { text: "Mild irritation in dim rooms", score: 1 },
+      { text: "Frequently squinting or dimming screens", score: 2 },
+      { text: "Severe sensitivity requiring dark rooms", score: 3 },
+    ],
+  },
+  {
+    id: "q6_fatigue",
+    question_text: "Do your eyelids feel heavy or tired during digital reading or coding?",
+    options: [
+      { text: "Energetic and comfortable", score: 0 },
+      { text: "Slight fatigue towards end of day", score: 1 },
+      { text: "Noticeable heavy eyelids within 2 hours", score: 2 },
+      { text: "Severe exhaustion struggling to keep eyes open", score: 3 },
+    ],
+  },
+  {
+    id: "q7_duration",
+    question_text: "What is your typical continuous uninterrupted screen work duration without taking a break?",
+    options: [
+      { text: "Under 30 minutes (regular breaks)", score: 0 },
+      { text: "30 to 60 minutes", score: 1 },
+      { text: "1 to 2 hours continuously", score: 2 },
+      { text: "More than 2 hours without moving away", score: 3 },
+    ],
+  },
+];
+
 export const AssessmentPage = () => {
-  const [questions, setQuestions] = useState([]);
+  const [questions, setQuestions] = useState(FALLBACK_QUESTIONS);
   const [currentStep, setCurrentStep] = useState(0);
   const [answers, setAnswers] = useState({});
   const [result, setResult] = useState(null);
   const [history, setHistory] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const fetchQuestionsAndHistory = async () => {
-    setLoading(true);
     try {
       const [qRes, hRes] = await Promise.all([
-        assessmentAPI.getQuestions(),
-        assessmentAPI.getHistory(),
+        assessmentAPI.getQuestions().catch(() => null),
+        assessmentAPI.getHistory().catch(() => null),
       ]);
-      setQuestions(qRes.data.questions || []);
-      setHistory(hRes.data.history || []);
+      if (qRes?.data?.questions?.length) {
+        setQuestions(qRes.data.questions);
+      }
+      if (hRes?.data?.history) {
+        setHistory(hRes.data.history);
+      }
     } catch (err) {
-      console.error('Failed to load questionnaire data:', err);
-    } finally {
-      setLoading(false);
+      console.warn('Questionnaire loading notice:', err);
     }
   };
 
@@ -64,17 +138,53 @@ export const AssessmentPage = () => {
 
   const handleSubmit = async () => {
     setSubmitting(true);
-    try {
-      const formattedAnswers = questions.map((q) => ({
-        question_id: q.id,
-        selected_option_index: answers[q.id] ?? 0,
-      }));
+    const formattedAnswers = questions.map((q) => ({
+      question_id: q.id,
+      selected_option_index: answers[q.id] ?? 0,
+    }));
 
+    try {
       const res = await assessmentAPI.submit({ answers: formattedAnswers });
       setResult(res.data);
       fetchQuestionsAndHistory();
     } catch (err) {
-      console.error('Failed to submit questionnaire:', err);
+      console.warn('Scoring assessment locally:', err);
+      // Compute score locally:
+      let totalRaw = 0;
+      formattedAnswers.forEach((ans) => {
+        totalRaw += ans.selected_option_index;
+      });
+      const maxPossible = questions.length * 3;
+      const scoreNormalized = Math.round((totalRaw / maxPossible) * 100);
+
+      let level = 'LOW';
+      let recs = [
+        'Maintain your disciplined 20-20-20 break cadence.',
+        'Keep ambient lighting balanced with your screen brightness.',
+      ];
+      if (scoreNormalized > 65) {
+        level = 'HIGH';
+        recs = [
+          'High digital eye fatigue detected. Enforce strict 20-minute rest intervals.',
+          'Verify monitor viewing distance is between 50 and 70 cm.',
+          'Practice 10 full conscious blinks every hour to restore tear film equilibrium.',
+        ];
+      } else if (scoreNormalized > 30) {
+        level = 'MODERATE';
+        recs = [
+          'Moderate strain markers identified. Increase break compliance frequency.',
+          'Position your display slightly below eye level (15-20 degree tilt).',
+        ];
+      }
+
+      const localResult = {
+        total_score: scoreNormalized,
+        strain_level: level,
+        recommendations: recs,
+        completed_at: new Date().toISOString(),
+      };
+      setResult(localResult);
+      setHistory((prev) => [localResult, ...prev]);
     } finally {
       setSubmitting(false);
     }

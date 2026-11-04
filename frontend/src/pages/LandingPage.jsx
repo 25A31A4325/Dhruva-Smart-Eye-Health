@@ -33,16 +33,11 @@ export const LandingPage = () => {
 
           <div className="flex items-center gap-3">
             <Link
-              to="/login"
-              className="px-4 py-2 text-sm font-semibold text-slate-700 hover:text-primary-600 transition-colors"
+              to="/dashboard"
+              className="px-5 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 rounded-xl shadow-md shadow-primary-600/25 transition-all hover:scale-105 flex items-center gap-1.5"
             >
-              Sign In
-            </Link>
-            <Link
-              to="/register"
-              className="px-5 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-700 rounded-xl shadow-md shadow-primary-600/20 transition-all hover:scale-[1.02]"
-            >
-              Get Started Free
+              <span>Start</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         </div>
@@ -66,17 +61,11 @@ export const LandingPage = () => {
 
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <Link
-              to="/register"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-semibold text-base shadow-lg shadow-primary-600/25 transition-all hover:scale-105"
+              to="/dashboard"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-9 py-4 rounded-2xl bg-gradient-to-r from-primary-600 to-primary-500 hover:from-primary-700 hover:to-primary-600 text-white font-bold text-lg shadow-xl shadow-primary-600/30 transition-all hover:scale-105 active:scale-95 cursor-pointer"
             >
-              <span>Start Monitoring Session</span>
-              <ArrowRight className="w-4 h-4" />
-            </Link>
-            <Link
-              to="/login"
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl bg-white hover:bg-slate-50 text-slate-700 font-semibold text-base border border-slate-200 shadow-sm transition-all"
-            >
-              <span>Sign In to Dashboard</span>
+              <span>Start Dhruva</span>
+              <ArrowRight className="w-5 h-5" />
             </Link>
           </div>
 

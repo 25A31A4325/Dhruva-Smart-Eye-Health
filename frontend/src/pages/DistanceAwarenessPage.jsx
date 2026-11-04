@@ -43,16 +43,39 @@ export const DistanceAwarenessPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    const dist = parseFloat(distanceCm);
     try {
       const res = await distanceAPI.check({
-        reported_distance_cm: parseFloat(distanceCm),
+        reported_distance_cm: dist,
         screen_diagonal_inches: parseFloat(screenDiagonal),
         workstation_type: workstationType,
       });
       setAssessmentResult(res.data);
       fetchHistory();
     } catch (err) {
-      console.error('Failed to submit distance check:', err);
+      console.warn('Evaluating distance assessment locally:', err);
+      let zone = 'OPTIMAL';
+      let guidance = 'Excellent workstation distance! Your eyes maintain balanced convergence and relaxed ciliary accommodation.';
+      if (dist < 35) {
+        zone = 'DANGER_TOO_CLOSE';
+        guidance = 'Critical proximity! Viewing closer than 35 cm creates intense ciliary muscle contraction, leading to ocular strain.';
+      } else if (dist < 50) {
+        zone = 'WARNING_CLOSE';
+        guidance = 'Viewing distance is slightly too close. Consider pushing your monitor back 5-10 cm to reach the 50-70 cm safe zone.';
+      } else if (dist > 75) {
+        zone = 'ACCEPTABLE_FAR';
+        guidance = 'Acceptable viewing distance. Ensure text scaling is high enough to prevent forward head lean.';
+      }
+
+      const localResult = {
+        distance_cm: dist,
+        classification: zone,
+        guidance_message: guidance,
+        recommended_range: '50 - 70 cm',
+        timestamp: new Date().toISOString(),
+      };
+      setAssessmentResult(localResult);
+      setHistory((prev) => [localResult, ...prev]);
     } finally {
       setLoading(false);
     }

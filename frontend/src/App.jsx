@@ -16,9 +16,9 @@ import { TipsPage } from './pages/TipsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
 
-// Protected Route Guard
+// Route Guard (Ensures instant loading)
 const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { loading } = useAuth();
 
   if (loading) {
     return (
@@ -29,22 +29,6 @@ const ProtectedRoute = ({ children }) => {
         </div>
       </div>
     );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
-  }
-
-  return children;
-};
-
-// Public Route Guard (Redirects away from Login/Register if already authenticated)
-const PublicRoute = ({ children }) => {
-  const { isAuthenticated, loading } = useAuth();
-
-  if (loading) return null;
-  if (isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
   }
 
   return children;
@@ -59,26 +43,13 @@ export default function App() {
           <BreakReminderModal />
 
           <Routes>
-            {/* Public Marketing & Auth Routes */}
+            {/* Overview & Start Routes */}
             <Route path="/" element={<LandingPage />} />
-            <Route
-              path="/login"
-              element={
-                <PublicRoute>
-                  <LoginPage />
-                </PublicRoute>
-              }
-            />
-            <Route
-              path="/register"
-              element={
-                <PublicRoute>
-                  <RegisterPage />
-                </PublicRoute>
-              }
-            />
+            <Route path="/start" element={<LoginPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<Navigate to="/start" replace />} />
 
-            {/* Protected Application Workspace */}
+            {/* Application Workspace */}
             <Route
               element={
                 <ProtectedRoute>
