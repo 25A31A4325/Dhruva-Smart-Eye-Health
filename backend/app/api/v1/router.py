@@ -6,7 +6,8 @@ from app.api.v1.endpoints import (
     distance,
     assessment,
     tips,
-    analytics
+    analytics,
+    camera_wellness
 )
 
 api_router = APIRouter()
@@ -18,3 +19,4 @@ api_router.include_router(distance.router)
 api_router.include_router(assessment.router)
 api_router.include_router(tips.router)
 api_router.include_router(analytics.router)
+api_router.include_router(camera_wellness.router)

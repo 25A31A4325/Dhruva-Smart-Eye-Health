@@ -15,6 +15,7 @@ import { AssessmentPage } from './pages/AssessmentPage';
 import { TipsPage } from './pages/TipsPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { CameraWellnessPage } from './pages/CameraWellnessPage';
 
 // Route Guard (Ensures instant loading)
 const ProtectedRoute = ({ children }) => {
@@ -60,6 +61,7 @@ export default function App() {
               <Route path="/dashboard" element={<DashboardPage />} />
               <Route path="/session" element={<SessionTrackerPage />} />
               <Route path="/distance" element={<DistanceAwarenessPage />} />
+              <Route path="/camera-wellness" element={<CameraWellnessPage />} />
               <Route path="/assessment" element={<AssessmentPage />} />
               <Route path="/tips" element={<TipsPage />} />
               <Route path="/analytics" element={<AnalyticsPage />} />

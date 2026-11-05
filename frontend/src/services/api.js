@@ -87,4 +87,10 @@ export const analyticsAPI = {
   getMonthlyTrends: () => api.get('/api/v1/analytics/monthly-trends'),
 };
 
+export const cameraWellnessAPI = {
+  saveSummary: (data) => api.post('/api/v1/camera-wellness/summary', data),
+  getLatest: () => api.get('/api/v1/camera-wellness/latest'),
+  getHistory: (limit = 20) => api.get(`/api/v1/camera-wellness/history?limit=${limit}`),
+};
+
 export default api;

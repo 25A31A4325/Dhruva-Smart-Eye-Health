@@ -10,11 +10,13 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Camera,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/session', label: 'Session Tracker', icon: Clock, badge: 'Live' },
+  { path: '/camera-wellness', label: 'Camera Wellness', icon: Camera, badge: 'AI' },
   { path: '/distance', label: 'Distance Awareness', icon: Maximize2 },
   { path: '/assessment', label: 'Eye Strain Survey', icon: ClipboardCheck },
   { path: '/tips', label: 'Eye Care Guidelines', icon: Lightbulb },

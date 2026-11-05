@@ -11,6 +11,8 @@ import {
   ShieldCheck,
   ArrowRight,
   Info,
+  Camera,
+  Eye,
 } from 'lucide-react';
 import {
   BarChart,
@@ -26,7 +28,7 @@ import {
   Pie,
   Cell,
 } from 'recharts';
-import { analyticsAPI } from '../services/api';
+import { analyticsAPI, cameraWellnessAPI } from '../services/api';
 import { useSession } from '../context/SessionContext';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
@@ -37,6 +39,7 @@ export const AnalyticsPage = () => {
   const [weeklyData, setWeeklyData] = useState(null);
   const [monthlyData, setMonthlyData] = useState(null);
   const [dailyData, setDailyData] = useState(null);
+  const [cameraHistory, setCameraHistory] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Builds genuine analytics based exclusively on user's actual activity
@@ -162,11 +165,21 @@ export const AnalyticsPage = () => {
       setLoading(true);
 
       try {
-        const [dailyRes, weeklyRes, monthlyRes] = await Promise.all([
+        const [dailyRes, weeklyRes, monthlyRes, camRes] = await Promise.all([
           analyticsAPI.getDailySummary().catch(() => null),
           analyticsAPI.getWeeklyTrends().catch(() => null),
           analyticsAPI.getMonthlyTrends().catch(() => null),
+          cameraWellnessAPI.getHistory(10).catch(() => null),
         ]);
+
+        if (camRes?.data?.summaries?.length > 0) {
+          setCameraHistory(camRes.data.summaries);
+        } else {
+          try {
+            const localHist = JSON.parse(localStorage.getItem('dhruva_camera_wellness_history') || '[]');
+            setCameraHistory(localHist.filter((s) => s.user_consent !== false));
+          } catch {}
+        }
 
         const { weekly, monthly, breakStats } = buildRealAnalytics(
           weeklyRes?.data,
@@ -506,6 +519,87 @@ export const AnalyticsPage = () => {
             </div>
           </div>
         </div>
+      </Card>
+
+      {/* Camera Wellness Non-Image Observations Section */}
+      <Card
+        title="Camera Wellness Check Observations"
+        subtitle="Recent non-image wellness check summaries saved with your consent"
+        action={
+          <Link
+            to="/camera-wellness"
+            className="text-xs font-bold text-primary-600 hover:text-primary-700 inline-flex items-center gap-1 bg-primary-50 px-3 py-1.5 rounded-xl border border-primary-200 hover:bg-primary-100 transition-all"
+          >
+            <Camera className="w-3.5 h-3.5" />
+            <span>New Camera Check</span>
+          </Link>
+        }
+      >
+        {cameraHistory.length > 0 ? (
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {cameraHistory.map((item, idx) => (
+                <div
+                  key={item.id || idx}
+                  className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 space-y-2"
+                >
+                  <div className="flex items-center justify-between text-xs text-slate-500">
+                    <span className="font-semibold text-slate-700">
+                      {item.timestamp ? new Date(item.timestamp).toLocaleDateString() : 'Recent'}
+                    </span>
+                    <span className="font-mono text-[11px]">
+                      {item.session_duration_seconds ? `${item.session_duration_seconds}s check` : ''}
+                    </span>
+                  </div>
+
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-black text-slate-900 font-mono">
+                      {item.approximate_blink_count}
+                    </span>
+                    <span className="text-xs text-slate-500">approx blinks</span>
+                    {item.blinks_per_minute && (
+                      <span className="text-[10px] text-primary-600 font-bold ml-auto">
+                        ~{item.blinks_per_minute}/min
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="text-[11px] text-slate-600 truncate">
+                    Framing: <span className="font-medium text-slate-800">{item.relative_position_summary}</span>
+                  </div>
+
+                  <div className="text-[10px] text-slate-500 pt-1 border-t border-slate-200/60">
+                    Visibility: {item.face_visibility_summary}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="text-[10px] text-slate-500 italic pt-2">
+              *Educational wellness records only. Zero photographs or video recordings are ever captured or stored.
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-8 space-y-3">
+            <div className="w-12 h-12 rounded-2xl bg-primary-50 text-primary-600 flex items-center justify-center mx-auto border border-primary-100">
+              <Camera className="w-6 h-6" />
+            </div>
+            <div className="max-w-md mx-auto">
+              <h5 className="text-xs font-bold text-slate-900">No Consented Camera Summaries Available</h5>
+              <p className="text-[11px] text-slate-500 mt-1 leading-relaxed">
+                Take a 1-to-2 minute webcam awareness check to observe blink pacing and monitor posture.
+                Summaries only appear here when you explicitly choose to save them.
+              </p>
+            </div>
+            <Link
+              to="/camera-wellness"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold bg-primary-600 hover:bg-primary-700 text-white transition-all shadow-xs"
+            >
+              <span>Take Camera Wellness Check</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        )}
       </Card>
     </div>
   );
