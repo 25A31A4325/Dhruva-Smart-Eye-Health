@@ -182,6 +182,7 @@ export const SessionProvider = ({ children }) => {
 
   const stopSession = async (finalNotes = '') => {
     if (!activeSession) return;
+    const duration = elapsedSeconds;
     setLoading(true);
     try {
       const res = await sessionsAPI.stop({
@@ -193,6 +194,19 @@ export const SessionProvider = ({ children }) => {
       activeSecondsAccumulatorRef.current = 0;
       return { success: true, session: res.data };
     } catch (err) {
+      // Save local session record
+      try {
+        const history = JSON.parse(localStorage.getItem('dhruva_session_history') || '[]');
+        history.unshift({
+          id: activeSession.id,
+          duration_seconds: duration,
+          completed_at: new Date().toISOString(),
+          notes: finalNotes || activeSession.notes || 'Screen Session',
+        });
+        localStorage.setItem('dhruva_session_history', JSON.stringify(history.slice(0, 30)));
+      } catch (e) {
+        // ignore
+      }
       setActiveSession(null);
       setElapsedSeconds(0);
       activeSecondsAccumulatorRef.current = 0;
@@ -202,7 +216,18 @@ export const SessionProvider = ({ children }) => {
     }
   };
 
-  const acknowledgeBreak = async (completed, elapsedSeconds = 20) => {
+  const acknowledgeBreak = async (completed, elapsedBreakSec = 20) => {
+    try {
+      const stats = JSON.parse(localStorage.getItem('dhruva_break_stats') || '{"completed": 0, "prompted": 0}');
+      stats.prompted = (stats.prompted || 0) + 1;
+      if (completed) {
+        stats.completed = (stats.completed || 0) + 1;
+      }
+      localStorage.setItem('dhruva_break_stats', JSON.stringify(stats));
+    } catch (e) {
+      // ignore
+    }
+
     if (!currentBreakId) {
       setIsBreakModalOpen(false);
       return;
@@ -211,7 +236,7 @@ export const SessionProvider = ({ children }) => {
       await breaksAPI.acknowledge({
         break_id: currentBreakId,
         completed,
-        elapsed_break_seconds: elapsedSeconds,
+        elapsed_break_seconds: elapsedBreakSec,
       });
 
       if (completed) {
@@ -221,6 +246,9 @@ export const SessionProvider = ({ children }) => {
       }
     } catch (err) {
       console.warn('Failed to acknowledge break event:', err);
+      if (completed) {
+        setBreakStreak((prev) => prev + 1);
+      }
     } finally {
       setIsBreakModalOpen(false);
       setCurrentBreakId(null);
