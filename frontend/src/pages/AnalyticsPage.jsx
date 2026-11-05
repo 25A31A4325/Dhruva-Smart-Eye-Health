@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import {
   BarChart3,
   TrendingUp,
@@ -8,7 +9,8 @@ import {
   Calendar,
   Sparkles,
   ShieldCheck,
-  Zap,
+  ArrowRight,
+  Info,
 } from 'lucide-react';
 import {
   BarChart,
@@ -25,22 +27,23 @@ import {
   Cell,
 } from 'recharts';
 import { analyticsAPI } from '../services/api';
+import { useSession } from '../context/SessionContext';
 import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 
 export const AnalyticsPage = () => {
+  const { activeSession, elapsedSeconds } = useSession();
+
   const [weeklyData, setWeeklyData] = useState(null);
   const [monthlyData, setMonthlyData] = useState(null);
   const [dailyData, setDailyData] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Helper to generate dynamic 7-day realistic metrics
-  const buildFallbackWeekly = () => {
+  // Builds genuine analytics based exclusively on user's actual activity
+  const buildRealAnalytics = (remoteWeekly, remoteDaily, remoteMonthly) => {
     const today = new Date();
     const days = [];
     const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const baselineMinutes = [195, 230, 180, 260, 210, 175, 140];
-    const baselineScores = [86, 88, 85, 92, 89, 94, 91];
 
     let userSessions = [];
     try {
@@ -49,53 +52,114 @@ export const AnalyticsPage = () => {
       userSessions = [];
     }
 
+    let breakStats = { completed: 0, prompted: 0 };
+    try {
+      breakStats = JSON.parse(localStorage.getItem('dhruva_break_stats') || '{"completed": 0, "prompted": 0}');
+    } catch {
+      breakStats = { completed: 0, prompted: 0 };
+    }
+
+    // Include live active session if one is in progress
+    const activeElapsedMin = activeSession && elapsedSeconds > 0 ? Math.round(elapsedSeconds / 60) : 0;
+
+    let hasAnyWork = userSessions.length > 0 || activeElapsedMin > 0;
+    if (remoteWeekly?.total_screen_time_hours > 0 || remoteDaily?.total_screen_seconds > 0) {
+      hasAnyWork = true;
+    }
+
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const dStr = d.toISOString().split('T')[0];
       const dayName = i === 0 ? 'Today' : dayNames[d.getDay()];
 
+      // Match genuine sessions completed on that date
       const daySessions = userSessions.filter((s) => s.completed_at?.startsWith(dStr));
       const loggedSec = daySessions.reduce((acc, s) => acc + (s.duration_seconds || 0), 0);
-      const loggedMin = Math.round(loggedSec / 60);
+      let dayMin = Math.round(loggedSec / 60);
 
-      const baseMin = baselineMinutes[6 - i];
-      const totalMin = loggedMin > 0 ? (i === 0 ? loggedMin + 45 : loggedMin) : baseMin;
+      // Add live session minutes if today
+      if (i === 0 && activeElapsedMin > 0) {
+        dayMin += activeElapsedMin;
+      }
+
+      // Check remote day data if present
+      const remoteDay = remoteWeekly?.days?.find((rd) => rd.date === dStr || rd.day_name === dayName);
+      if (remoteDay && remoteDay.screen_time_minutes > 0) {
+        dayMin = Math.max(dayMin, Math.round(remoteDay.screen_time_minutes));
+      }
+
+      // Score is only calculated if the user actually worked
+      let dayScore = null;
+      if (dayMin > 0) {
+        dayScore = Math.min(100, Math.max(70, 95 - Math.floor(dayMin / 120) * 10));
+      }
 
       days.push({
         date: dStr,
         day_name: dayName,
-        screen_time_minutes: totalMin,
-        screen_hours: Math.round((totalMin / 60) * 10) / 10,
-        eye_health_score: baselineScores[6 - i],
-        breaks_completed: Math.max(1, Math.round(totalMin / 22)),
-        breaks_prompted: Math.max(1, Math.round(totalMin / 20)),
+        screen_time_minutes: dayMin,
+        screen_hours: Math.round((dayMin / 60) * 10) / 10,
+        eye_health_score: dayScore,
       });
     }
 
     const totalMinutes = days.reduce((acc, d) => acc + d.screen_time_minutes, 0);
     const totalHours = Math.round((totalMinutes / 60) * 10) / 10;
-    const avgHours = Math.round((totalHours / 7) * 10) / 10;
-    const avgScore = Math.round(days.reduce((acc, d) => acc + d.eye_health_score, 0) / 7);
+    const activeDaysCount = days.filter((d) => d.screen_time_minutes > 0).length;
+    const avgHours = activeDaysCount > 0 ? Math.round((totalHours / activeDaysCount) * 10) / 10 : 0;
+
+    const scoredDays = days.filter((d) => d.eye_health_score !== null);
+    const avgScore =
+      scoredDays.length > 0
+        ? Math.round(scoredDays.reduce((acc, d) => acc + d.eye_health_score, 0) / scoredDays.length)
+        : null;
 
     const startDate = new Date(today);
     startDate.setDate(today.getDate() - 6);
 
-    return {
+    const totalBreaksCompleted = breakStats.completed || remoteDaily?.breaks_completed || 0;
+    const totalBreaksPrompted = breakStats.prompted || remoteDaily?.breaks_prompted || 0;
+    const compliancePercent =
+      totalBreaksPrompted > 0
+        ? Math.round((totalBreaksCompleted / totalBreaksPrompted) * 100)
+        : totalBreaksCompleted > 0
+        ? 100
+        : null;
+
+    const weekly = {
       period_start: startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }),
       period_end: today.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' }),
       total_screen_time_hours: totalHours,
       average_daily_screen_time_hours: avgHours,
-      overall_break_compliance_percent: 96.2,
+      overall_break_compliance_percent: compliancePercent,
       average_eye_health_score: avgScore,
+      has_any_work: hasAnyWork,
       days,
+    };
+
+    const now = new Date();
+    const totalSessionsCount = userSessions.length + (activeSession ? 1 : 0) + (remoteMonthly?.total_sessions || 0);
+
+    const monthly = {
+      month_label: now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+      total_screen_time_hours: totalHours,
+      total_sessions: totalSessionsCount,
+      total_breaks_completed: totalBreaksCompleted,
+      overall_compliance_percent: compliancePercent ?? 0,
+      has_any_work: hasAnyWork,
+    };
+
+    return {
+      weekly,
+      monthly,
+      breakStats: { completed: totalBreaksCompleted, prompted: totalBreaksPrompted },
     };
   };
 
   useEffect(() => {
     const fetchAnalytics = async () => {
       setLoading(true);
-      const localWeekly = buildFallbackWeekly();
 
       try {
         const [dailyRes, weeklyRes, monthlyRes] = await Promise.all([
@@ -104,83 +168,59 @@ export const AnalyticsPage = () => {
           analyticsAPI.getMonthlyTrends().catch(() => null),
         ]);
 
-        if (dailyRes?.data) {
-          setDailyData(dailyRes.data);
-        } else {
-          setDailyData({
-            total_screen_seconds: 8400,
-            active_screen_seconds: 7800,
-            breaks_prompted: 11,
-            breaks_completed: 10,
-            break_compliance_percent: 95.2,
-            current_break_streak: 4,
-            eye_health_score: 91,
-          });
-        }
+        const { weekly, monthly, breakStats } = buildRealAnalytics(
+          weeklyRes?.data,
+          dailyRes?.data,
+          monthlyRes?.data
+        );
 
-        if (weeklyRes?.data?.days?.length) {
-          setWeeklyData(weeklyRes.data);
-        } else {
-          setWeeklyData(localWeekly);
-        }
-
-        if (monthlyRes?.data) {
-          setMonthlyData(monthlyRes.data);
-        } else {
-          const now = new Date();
-          setMonthlyData({
-            month_label: now.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
-            total_screen_time_hours: 98.5,
-            total_sessions: 42,
-            total_breaks_completed: 214,
-            overall_compliance_percent: 95.8,
-            average_health_score: 90.2,
-          });
-        }
+        setDailyData({
+          breaks_prompted: breakStats.prompted,
+          breaks_completed: breakStats.completed,
+        });
+        setWeeklyData(weekly);
+        setMonthlyData(monthly);
       } catch (err) {
         console.warn('Analytics loading notice:', err);
-        setWeeklyData(localWeekly);
+        const { weekly, monthly, breakStats } = buildRealAnalytics(null, null, null);
         setDailyData({
-          total_screen_seconds: 8400,
-          active_screen_seconds: 7800,
-          breaks_prompted: 11,
-          breaks_completed: 10,
-          break_compliance_percent: 95.2,
-          current_break_streak: 4,
-          eye_health_score: 91,
+          breaks_prompted: breakStats.prompted,
+          breaks_completed: breakStats.completed,
         });
-        setMonthlyData({
-          month_label: new Date().toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
-          total_screen_time_hours: 98.5,
-          total_sessions: 42,
-          total_breaks_completed: 214,
-          overall_compliance_percent: 95.8,
-          average_health_score: 90.2,
-        });
+        setWeeklyData(weekly);
+        setMonthlyData(monthly);
       } finally {
         setLoading(false);
       }
     };
 
     fetchAnalytics();
-  }, []);
+  }, [activeSession, elapsedSeconds]);
 
   const chartDays = weeklyData?.days || [];
+  const hasWork = weeklyData?.has_any_work;
 
-  // Break compliance donut stats
-  let totalBreaksPrompted = dailyData?.breaks_prompted ?? 11;
-  let totalBreaksCompleted = dailyData?.breaks_completed ?? 10;
-  if (totalBreaksPrompted === 0 && totalBreaksCompleted === 0) {
-    totalBreaksPrompted = 11;
-    totalBreaksCompleted = 10;
-  }
+  // Donut chart stats
+  const totalBreaksCompleted = dailyData?.breaks_completed || 0;
+  const totalBreaksPrompted = dailyData?.breaks_prompted || 0;
   const totalBreaksSkipped = Math.max(0, totalBreaksPrompted - totalBreaksCompleted);
-  const complianceRate = Math.round((totalBreaksCompleted / Math.max(1, totalBreaksPrompted)) * 100);
 
-  const breakPieData = [
-    { name: 'Completed Breaks', value: totalBreaksCompleted, color: '#059669' },
-    { name: 'Missed / Delayed', value: totalBreaksSkipped > 0 ? totalBreaksSkipped : 1, color: '#CBD5E1' },
-  ];
+  const breakPieData = hasWork && (totalBreaksCompleted > 0 || totalBreaksSkipped > 0)
+    ? [
+        { name: 'Completed Breaks', value: totalBreaksCompleted, color: '#059669' },
+        { name: 'Missed / Delayed', value: totalBreaksSkipped > 0 ? totalBreaksSkipped : 0, color: '#CBD5E1' },
+      ]
+    : [
+        { name: 'No Breaks Yet', value: 1, color: '#E2E8F0' },
+      ];
+
+  const complianceLabel = weeklyData?.overall_break_compliance_percent !== null
+    ? `${weeklyData?.overall_break_compliance_percent}%`
+    : '-- %';
+
+  const healthScoreLabel = weeklyData?.average_eye_health_score !== null
+    ? `${weeklyData?.average_eye_health_score} / 100`
+    : '-- / 100';
 
   return (
     <div className="space-y-8 animate-fade-in max-w-7xl mx-auto">
@@ -198,6 +238,35 @@ export const AnalyticsPage = () => {
         </p>
       </div>
 
+      {/* Real-Work Notice Banner if User Has Not Logged Any Work Yet */}
+      {!hasWork && (
+        <div className="p-6 rounded-3xl bg-gradient-to-r from-primary-50/80 via-white to-primary-50/50 border border-primary-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-5">
+          <div className="flex items-center gap-4 text-left">
+            <div className="w-12 h-12 rounded-2xl bg-primary-600 text-white flex items-center justify-center shrink-0 shadow-md shadow-primary-600/20">
+              <Clock className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="inline-block text-[10px] uppercase font-bold text-primary-700 bg-primary-100/70 px-2 py-0.5 rounded mb-1">
+                Zero Mock Data • Authentic Progress Tracking
+              </div>
+              <h3 className="text-sm font-bold text-slate-900">
+                No Screen Work Recorded Yet
+              </h3>
+              <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                Dhruva only generates reports and graphs when you actually work. Start a monitoring session or use the 20-20-20 timer to begin tracking real habits.
+              </p>
+            </div>
+          </div>
+          <Link
+            to="/session"
+            className="px-5 py-3 rounded-xl bg-primary-600 hover:bg-primary-700 text-white font-bold text-xs shadow-md shadow-primary-600/25 transition-all hover:scale-105 shrink-0 flex items-center gap-2 cursor-pointer"
+          >
+            <span>Start Session Now</span>
+            <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
+
       {/* Top 3 Summary Metric Cards */}
       <div className="grid sm:grid-cols-3 gap-6">
         <Card className="p-6">
@@ -209,7 +278,11 @@ export const AnalyticsPage = () => {
             {weeklyData?.total_screen_time_hours || 0} <span className="text-lg font-bold text-slate-500">hrs</span>
           </div>
           <div className="text-xs text-slate-500 mt-1 font-medium">
-            Average: <span className="font-bold text-slate-700">{weeklyData?.average_daily_screen_time_hours || 0} hrs</span> / day
+            {hasWork ? (
+              <>Average: <span className="font-bold text-slate-700">{weeklyData?.average_daily_screen_time_hours || 0} hrs</span> / day</>
+            ) : (
+              <span>No monitoring sessions recorded yet</span>
+            )}
           </div>
         </Card>
 
@@ -219,11 +292,11 @@ export const AnalyticsPage = () => {
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
           </div>
           <div className="text-3xl sm:text-4xl font-black text-primary-600 font-mono mt-3">
-            {weeklyData?.overall_break_compliance_percent || 100}%
+            {complianceLabel}
           </div>
           <div className="text-xs text-emerald-700 font-semibold mt-1 flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
-            <span>20-20-20 rule adherence rate</span>
+            <span>{hasWork && weeklyData?.overall_break_compliance_percent !== null ? '20-20-20 rule adherence rate' : 'No breaks prompted yet'}</span>
           </div>
         </Card>
 
@@ -233,20 +306,24 @@ export const AnalyticsPage = () => {
             <ShieldCheck className="w-4 h-4 text-primary-600" />
           </div>
           <div className="text-3xl sm:text-4xl font-black text-slate-900 font-mono mt-3">
-            {weeklyData?.average_eye_health_score || 89} <span className="text-lg font-bold text-slate-400">/ 100</span>
+            {healthScoreLabel}
           </div>
           <div className="text-xs text-slate-500 mt-1 font-medium">
-            Period: <span className="font-semibold text-slate-700">{weeklyData?.period_start} to {weeklyData?.period_end}</span>
+            {hasWork ? (
+              <>Period: <span className="font-semibold text-slate-700">{weeklyData?.period_start} to {weeklyData?.period_end}</span></>
+            ) : (
+              <span>Complete a session to compute score</span>
+            )}
           </div>
         </Card>
       </div>
 
-      {/* Charts Section: 3 Columns on Large Screens */}
+      {/* Charts Section: 3 Columns */}
       <div className="grid lg:grid-cols-3 gap-6 sm:gap-8">
         {/* Chart 1: Daily Screen Time (Bar Chart) */}
         <Card
           title="Daily In-App Screen Time (Mins)"
-          subtitle="Active monitoring duration logged over the last 7 days"
+          subtitle={hasWork ? "Active monitoring duration logged over the last 7 days" : "0 mins logged — start a session to record time"}
         >
           <div className="w-full pt-4" style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height={260}>
@@ -259,6 +336,7 @@ export const AnalyticsPage = () => {
                   tickLine={false}
                 />
                 <YAxis
+                  domain={[0, (dataMax) => Math.max(60, dataMax + 20)]}
                   tick={{ fontSize: 11, fill: '#64748B' }}
                   axisLine={false}
                   tickLine={false}
@@ -291,7 +369,7 @@ export const AnalyticsPage = () => {
         {/* Chart 2: Eye Health Awareness Score Trend (Line Chart) */}
         <Card
           title="Eye Health Score Progression"
-          subtitle="Composite wellness rating (0-100) based on breaks and pacing"
+          subtitle={hasWork && weeklyData?.average_eye_health_score !== null ? "Composite wellness rating (0-100) based on breaks and pacing" : "No score trend yet — records when sessions are active"}
         >
           <div className="w-full pt-4" style={{ height: 280 }}>
             <ResponsiveContainer width="100%" height={260}>
@@ -304,13 +382,13 @@ export const AnalyticsPage = () => {
                   tickLine={false}
                 />
                 <YAxis
-                  domain={[60, 100]}
+                  domain={[0, 100]}
                   tick={{ fontSize: 11, fill: '#64748B' }}
                   axisLine={false}
                   tickLine={false}
                 />
                 <Tooltip
-                  formatter={(val) => [`${val} / 100`, 'Health Score']}
+                  formatter={(val) => [val !== null ? `${val} / 100` : 'No Activity', 'Health Score']}
                   contentStyle={{
                     backgroundColor: '#FFFFFF',
                     borderRadius: '14px',
@@ -324,7 +402,8 @@ export const AnalyticsPage = () => {
                   type="monotone"
                   dataKey="eye_health_score"
                   stroke="#059669"
-                  strokeWidth={3.5}
+                  strokeWidth={3}
+                  connectNulls={false}
                   dot={{ r: 5, fill: '#059669', stroke: '#FFFFFF', strokeWidth: 2 }}
                   activeDot={{ r: 7, fill: '#047857' }}
                   name="Health Score"
@@ -370,7 +449,7 @@ export const AnalyticsPage = () => {
               {/* Centered Percentage in Donut Hole */}
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                 <span className="text-2xl font-black text-slate-900 font-mono leading-none">
-                  {complianceRate}%
+                  {complianceLabel}
                 </span>
                 <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mt-0.5">
                   Adherence
@@ -423,7 +502,7 @@ export const AnalyticsPage = () => {
           <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100">
             <div className="text-xs text-slate-500 font-bold uppercase tracking-wider">Overall Adherence</div>
             <div className="text-2xl sm:text-3xl font-black text-emerald-600 font-mono mt-1.5">
-              {monthlyData?.overall_compliance_percent || 100}%
+              {hasWork && weeklyData?.overall_break_compliance_percent !== null ? `${monthlyData?.overall_compliance_percent}%` : '--'}
             </div>
           </div>
         </div>
