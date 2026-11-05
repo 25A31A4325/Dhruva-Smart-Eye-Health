@@ -28,6 +28,37 @@ export const DashboardPage = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
+  // Interactive Checklist State
+  const [completedHabits, setCompletedHabits] = useState(() => {
+    try {
+      const saved = localStorage.getItem('dhruva_screen_habits');
+      return saved ? JSON.parse(saved) : { distance: false, breaks: false, survey: false };
+    } catch {
+      return { distance: false, breaks: false, survey: false };
+    }
+  });
+
+  const toggleHabit = (habitKey) => {
+    setCompletedHabits((prev) => {
+      const updated = { ...prev, [habitKey]: !prev[habitKey] };
+      localStorage.setItem('dhruva_screen_habits', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  useEffect(() => {
+    if (activeSession) {
+      setCompletedHabits((prev) => {
+        if (!prev.breaks) {
+          const updated = { ...prev, breaks: true };
+          localStorage.setItem('dhruva_screen_habits', JSON.stringify(updated));
+          return updated;
+        }
+        return prev;
+      });
+    }
+  }, [activeSession]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
@@ -273,30 +304,156 @@ export const DashboardPage = () => {
           )}
 
           {/* Quick Ergonomics Checklist */}
-          <Card title="Healthy Screen Habits Checklist" subtitle="Simple workstation adjustments that protect your ciliary muscles">
+          <Card
+            title="Healthy Screen Habits Checklist"
+            subtitle="Simple workstation adjustments that protect your ciliary muscles"
+            action={
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full bg-primary-100 text-primary-800">
+                {Object.values(completedHabits).filter(Boolean).length} of 3 Done
+              </span>
+            }
+          >
+            {/* Progress Bar */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center text-xs text-slate-500 mb-1.5 font-medium">
+                <span>Daily Habit Progress</span>
+                <span className="font-bold text-slate-700">
+                  {Math.round((Object.values(completedHabits).filter(Boolean).length / 3) * 100)}%
+                </span>
+              </div>
+              <div className="w-full h-2 rounded-full bg-slate-100 overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500"
+                  style={{ width: `${(Object.values(completedHabits).filter(Boolean).length / 3) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+
             <div className="space-y-3">
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+              {/* Habit 1 */}
+              <div
+                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all select-none cursor-pointer ${
+                  completedHabits.distance
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : 'bg-slate-50/80 hover:bg-slate-100/80 border-slate-200/80'
+                }`}
+                onClick={() => toggleHabit('distance')}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">1</div>
-                  <span className="text-xs font-medium text-slate-800">Maintain at least arm's length distance (50 to 70 cm)</span>
+                  <button
+                    type="button"
+                    aria-label="Toggle habit 1"
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                      completedHabits.distance
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'border-2 border-slate-300 text-slate-500 bg-white hover:border-primary-500'
+                    }`}
+                  >
+                    {completedHabits.distance ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-xs font-bold">1</span>}
+                  </button>
+                  <div>
+                    <span className={`text-xs font-semibold block ${completedHabits.distance ? 'text-emerald-950 line-through opacity-80' : 'text-slate-800'}`}>
+                      Maintain at least arm's length distance (50 to 70 cm)
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {completedHabits.distance ? '✓ Completed today (tap to toggle)' : 'Tap to mark done or open check tool'}
+                    </span>
+                  </div>
                 </div>
-                <Link to="/distance" className="text-xs font-semibold text-primary-600 hover:underline">Check</Link>
+
+                <div className="flex items-center gap-2 shrink-0 ml-3" onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    to="/distance"
+                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-white hover:bg-primary-50 text-primary-700 border border-primary-200 shadow-xs hover:border-primary-400 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                  >
+                    <span>Check</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+              {/* Habit 2 */}
+              <div
+                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all select-none cursor-pointer ${
+                  completedHabits.breaks
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : 'bg-slate-50/80 hover:bg-slate-100/80 border-slate-200/80'
+                }`}
+                onClick={() => toggleHabit('breaks')}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">2</div>
-                  <span className="text-xs font-medium text-slate-800">Practice the 20-20-20 rule during continuous work</span>
+                  <button
+                    type="button"
+                    aria-label="Toggle habit 2"
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                      completedHabits.breaks
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'border-2 border-slate-300 text-slate-500 bg-white hover:border-primary-500'
+                    }`}
+                  >
+                    {completedHabits.breaks ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-xs font-bold">2</span>}
+                  </button>
+                  <div>
+                    <span className={`text-xs font-semibold block ${completedHabits.breaks ? 'text-emerald-950 line-through opacity-80' : 'text-slate-800'}`}>
+                      Practice the 20-20-20 rule during continuous work
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {completedHabits.breaks ? '✓ Completed today (tap to toggle)' : 'Tap to mark done or start tracker'}
+                    </span>
+                  </div>
                 </div>
-                <Link to="/session" className="text-xs font-semibold text-primary-600 hover:underline">Track</Link>
+
+                <div className="flex items-center gap-2 shrink-0 ml-3" onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    to="/session"
+                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-white hover:bg-primary-50 text-primary-700 border border-primary-200 shadow-xs hover:border-primary-400 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                  >
+                    <span>Track</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-100">
+              {/* Habit 3 */}
+              <div
+                className={`flex items-center justify-between p-3.5 rounded-2xl border transition-all select-none cursor-pointer ${
+                  completedHabits.survey
+                    ? 'bg-emerald-50/70 border-emerald-200'
+                    : 'bg-slate-50/80 hover:bg-slate-100/80 border-slate-200/80'
+                }`}
+                onClick={() => toggleHabit('survey')}
+              >
                 <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center text-xs font-bold">3</div>
-                  <span className="text-xs font-medium text-slate-800">Evaluate digital eye strain symptoms weekly</span>
+                  <button
+                    type="button"
+                    aria-label="Toggle habit 3"
+                    className={`w-7 h-7 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                      completedHabits.survey
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'border-2 border-slate-300 text-slate-500 bg-white hover:border-primary-500'
+                    }`}
+                  >
+                    {completedHabits.survey ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-xs font-bold">3</span>}
+                  </button>
+                  <div>
+                    <span className={`text-xs font-semibold block ${completedHabits.survey ? 'text-emerald-950 line-through opacity-80' : 'text-slate-800'}`}>
+                      Evaluate digital eye strain symptoms weekly
+                    </span>
+                    <span className="text-[11px] text-slate-500">
+                      {completedHabits.survey ? '✓ Completed today (tap to toggle)' : 'Tap to mark done or take 7-point survey'}
+                    </span>
+                  </div>
                 </div>
-                <Link to="/assessment" className="text-xs font-semibold text-primary-600 hover:underline">Survey</Link>
+
+                <div className="flex items-center gap-2 shrink-0 ml-3" onClick={(e) => e.stopPropagation()}>
+                  <Link
+                    to="/assessment"
+                    className="px-3.5 py-1.5 text-xs font-bold rounded-xl bg-white hover:bg-primary-50 text-primary-700 border border-primary-200 shadow-xs hover:border-primary-400 transition-all flex items-center gap-1.5 hover:scale-105 active:scale-95"
+                  >
+                    <span>Survey</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </Link>
+                </div>
               </div>
             </div>
           </Card>
